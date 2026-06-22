@@ -251,3 +251,85 @@ def score_pose_one_to_one(sites, transformed_features, width=PHARMACOPHORE_WIDTH
             total += w * np.exp(-((d / width) ** 2))
     
     return float(total)
+
+# ---------------------------------------------------------------------------
+# Dock one conformer
+# ---------------------------------------------------------------------------
+def align_conformer(atom_coords, features_by_family, sites, exclusion_centers):
+    """Try alignments for this conformer, return best valid pose."""
+    flat = flatten_features(features_by_family)
+    if len(flat) < 3 or len(sites) < 3:
+        return None, -np.inf
+    
+    best_coords = None
+    best_score = -np.inf
+    
+    for sel_sites, sel_feats in candidate_triples(sites, flat):
+        site_pts = np.array([s.position for s in sel_sites])
+        feat_pts = np.array([f["position"] for f in sel_feats])
+        
+        if is_degenerate(site_pts) or is_degenerate(feat_pts):
+            continue
+        
+        rot, trans = fit_rigid_transform(feat_pts, site_pts)
+        posed_coords = apply_transform(atom_coords, rot, trans)
+        
+        if has_clash(posed_coords, exclusion_centers):
+            continue
+        
+        # transform features for scoring
+        trans_feats = {
+            fam: apply_transform(pos, rot, trans) if len(pos) else pos
+            for fam, pos in features_by_family.items()
+        }
+        
+        score = score_pose_one_to_one(sites, trans_feats)
+        if score > best_score:
+            best_score = score
+            best_coords = posed_coords
+    
+    return best_coords, best_score
+
+# ---------------------------------------------------------------------------
+# Dock one target
+# ---------------------------------------------------------------------------
+def solve_target(target, num_conformers=NUM_CONFORMERS):
+    """Full docking for one target molecule."""
+    smiles = target["smiles"]
+    sites = parse_sites(target)
+    excl = parse_exclusion_centers(target)
+    
+    if len(sites) < 3:
+        raise ValueError(f"{smiles}: need at least 3 sites for alignment")
+    
+    mol = build_molecule(smiles)
+    conf_ids, energies = generate_and_optimize_conformers(mol, num_conformers)
+    
+    best_coords = None
+    best_score = -np.inf
+    best_energy = np.inf
+    best_cid = -1
+    
+    for cid in conf_ids:
+        conf = mol.GetConformer(cid)
+        atom_coords = np.array(conf.GetPositions(), dtype=float)
+        
+        feats = get_features_by_family(mol, cid)
+        posed, score = align_conformer(atom_coords, feats, sites, excl)
+        
+        if posed is None:
+            continue
+        
+        en = energies.get(cid, np.inf)
+        
+        # prefer better score, or same score + lower energy
+        if score > best_score or (abs(score - best_score) < 1e-6 and en < best_energy):
+            best_coords = posed
+            best_score = score
+            best_energy = en
+            best_cid = cid
+    
+    if best_coords is None:
+        raise RuntimeError(f"No valid pose for {smiles}")
+    
+    return DockingResult(mol, best_coords, float(best_score), float(best_energy), best_cid)
