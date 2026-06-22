@@ -108,3 +108,30 @@ def parse_exclusion_centers(target):
         return np.empty((0, 3), dtype=float)
     return np.array([[v["x"], v["y"], v["z"]] for v in vols], dtype=float)
 
+# ---------------------------------------------------------------------------
+# Molecule builder from SMILES - wrapped in a function for clarity
+# ---------------------------------------------------------------------------
+def build_molecule(smiles):
+    """SMILES -> RDKit mol with Hs. Pretty standard."""
+    mol = Chem.MolFromSmiles(smiles)
+    if mol is None:
+        raise ValueError(f"Couldn't parse SMILES: {smiles}")
+    mol = Chem.AddHs(mol)  # need hydrogens for features usually
+    return mol
+
+def generate_and_optimize_conformers(mol, num_conformers=NUM_CONFORMERS):
+    """Generate + MMFF optimize. Returns ids and energies."""
+    conf_ids = list(AllChem.EmbedMultipleConfs(
+        mol,
+        numConfs=num_conformers,
+        randomSeed=RANDOM_SEED,
+        pruneRmsThresh=PRUNE_RMS_THRESHOLD,
+    ))
+    if not conf_ids:
+        raise RuntimeError("No conformers generated :(")
+    
+    opt_results = AllChem.MMFFOptimizeMoleculeConfs(mol, maxIters=MAX_MMFF_ITERATIONS)
+    energies = {}
+    for cid, (status, en) in zip(conf_ids, opt_results):
+        energies[cid] = float(en)  # keep even if not fully converged
+    return conf_ids, energies
