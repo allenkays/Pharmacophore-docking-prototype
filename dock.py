@@ -215,3 +215,13 @@ def candidate_triples(sites, flat_features, max_triples=MAX_ALIGNMENT_TRIPLES):
             yielded += 1
             if yielded >= max_triples:
                 return
+
+# ---------------------------------------------------------------------------
+# Clash check
+# ---------------------------------------------------------------------------
+def has_clash(atom_coords, exclusion_centers, radius=EXCLUSION_RADIUS, tolerance=CLASH_TOLERANCE):
+    """Any atom inside an exclusion sphere?"""
+    if len(exclusion_centers) == 0:
+        return False
+    dists = np.linalg.norm(atom_coords[:, None, :] - exclusion_centers[None, :, :], axis=2)
+    return bool((dists < (radius - tolerance)).any())
