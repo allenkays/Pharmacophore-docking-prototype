@@ -118,3 +118,20 @@ def build_molecule(smiles):
         raise ValueError(f"Couldn't parse SMILES: {smiles}")
     mol = Chem.AddHs(mol)  # need hydrogens for features usually
     return mol
+
+def generate_and_optimize_conformers(mol, num_conformers=NUM_CONFORMERS):
+    """Generate + MMFF optimize. Returns ids and energies."""
+    conf_ids = list(AllChem.EmbedMultipleConfs(
+        mol,
+        numConfs=num_conformers,
+        randomSeed=RANDOM_SEED,
+        pruneRmsThresh=PRUNE_RMS_THRESHOLD,
+    ))
+    if not conf_ids:
+        raise RuntimeError("No conformers generated :(")
+    
+    opt_results = AllChem.MMFFOptimizeMoleculeConfs(mol, maxIters=MAX_MMFF_ITERATIONS)
+    energies = {}
+    for cid, (status, en) in zip(conf_ids, opt_results):
+        energies[cid] = float(en)  # keep even if not fully converged
+    return conf_ids, energies
