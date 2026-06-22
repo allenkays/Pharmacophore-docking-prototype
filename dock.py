@@ -70,3 +70,21 @@ class DockingResult:
     conformer_energy: float
     conformer_id: int
 
+# ---------------------------------------------------------------------------
+# Input handling
+# ---------------------------------------------------------------------------
+def load_targets(json_path: str):
+    """Load targets from JSON. Basic validation because bad data happens."""
+    with open(json_path, "r", encoding="utf-8") as f:  # shorter var name
+        targets = json.load(f)
+    
+    if not isinstance(targets, list):
+        raise ValueError("Expected a list in targets.json")
+    
+    # quick sanity check
+    for i, t in enumerate(targets):
+        required = {"smiles", "interaction_sites", "excluded_volumes"}
+        missing = required - set(t.keys())
+        if missing:
+            raise ValueError(f"Target #{i} missing keys: {missing}")
+    return target
