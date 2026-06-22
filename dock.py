@@ -333,3 +333,27 @@ def solve_target(target, num_conformers=NUM_CONFORMERS):
         raise RuntimeError(f"No valid pose for {smiles}")
     
     return DockingResult(mol, best_coords, float(best_score), float(best_energy), best_cid)
+
+# ---------------------------------------------------------------------------
+# Output
+# ---------------------------------------------------------------------------
+def replace_with_docked_conformer(mol, coordinates):
+    """Replace conformers with the docked one."""
+    out_mol = Chem.Mol(mol)
+    new_conf = Chem.Conformer(out_mol.GetNumAtoms())
+    for i, pos in enumerate(coordinates):
+        new_conf.SetAtomPosition(i, pos.tolist())
+    
+    out_mol.RemoveAllConformers()
+    out_mol.AddConformer(new_conf, assignId=True)
+    return out_mol
+
+def write_result(writer, result, smiles, target_idx):
+    """Write one result to the SDF."""
+    out_mol = replace_with_docked_conformer(result.mol, result.coordinates)
+    out_mol.SetProp("input_smiles", smiles)
+    out_mol.SetProp("target_index", str(target_idx))
+    out_mol.SetProp("docking_score", f"{result.score:.6f}")
+    out_mol.SetProp("source_conformer_energy", f"{result.conformer_energy:.6f}")
+    out_mol.SetProp("source_conformer_id", str(result.conformer_id))
+    writer.write(out_mol)
