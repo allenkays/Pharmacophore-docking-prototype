@@ -135,3 +135,32 @@ def generate_and_optimize_conformers(mol, num_conformers=NUM_CONFORMERS):
     for cid, (status, en) in zip(conf_ids, opt_results):
         energies[cid] = float(en)  # keep even if not fully converged
     return conf_ids, energies
+
+# ---------------------------------------------------------------------------
+# Feature extraction
+# ---------------------------------------------------------------------------
+def get_features_by_family(mol, conformer_id):
+    """Pull pharmacophore features for a specific conformer."""
+    features_by_family = {
+        "Donor": [], "Acceptor": [], "Hydrophobe": [], "Aromatic": []
+    }
+    
+    rdkit_feats = FEATURE_FACTORY.GetFeaturesForMol(mol, confId=conformer_id)
+    for f in rdkit_feats:
+        fam = FAMILY_MAP.get(f.GetFamily())
+        if fam:
+            features_by_family[fam].append(list(f.GetPos()))
+    
+    # convert to numpy
+    return {
+        fam: (np.array(pos, dtype=float) if pos else np.empty((0, 3), dtype=float))
+        for fam, pos in features_by_family.items()
+    }
+
+def flatten_features(features_by_family):
+    """Turn grouped features into a flat list for triple selection."""
+    flat = []
+    for fam, positions in features_by_family.items():
+        for p in positions:
+            flat.append({"family": fam, "position": p})
+    return flat
