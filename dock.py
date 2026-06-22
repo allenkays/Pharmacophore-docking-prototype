@@ -189,3 +189,29 @@ def fit_rigid_transform(moving_points, target_points):
 def apply_transform(coords, rot, trans):
     """Apply rigid transform to coordinates."""
     return coords @ rot.T + trans
+
+# ---------------------------------------------------------------------------
+# Triple generation
+# ---------------------------------------------------------------------------
+def candidate_triples(sites, flat_features, max_triples=MAX_ALIGNMENT_TRIPLES):
+    """Generate compatible three-point correspondences."""
+    # precompute compatible features per site
+    compat = []
+    for site in sites:
+        idxs = [i for i, f in enumerate(flat_features) if f["family"] == site.family]
+        compat.append(idxs)
+    
+    yielded = 0
+    for site_idx in itertools.combinations(range(len(sites)), 3):
+        i0, i1, i2 = site_idx
+        if not (compat[i0] and compat[i1] and compat[i2]):
+            continue
+        for fidx in itertools.product(compat[i0], compat[i1], compat[i2]):
+            if len(set(fidx)) < 3:
+                continue
+            sel_sites = [sites[i0], sites[i1], sites[i2]]
+            sel_feats = [flat_features[k] for k in fidx]
+            yield sel_sites, sel_feats
+            yielded += 1
+            if yielded >= max_triples:
+                return
