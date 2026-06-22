@@ -88,3 +88,23 @@ def load_targets(json_path: str):
         if missing:
             raise ValueError(f"Target #{i} missing keys: {missing}")
     return target
+
+def parse_sites(target):
+    """Turn JSON sites into our objects. Skipped type hints here to save time."""
+    sites = []
+    for s in target.get("interaction_sites", []):
+        fam = s["family"]
+        if fam not in list(FAMILY_MAP.values()):
+            raise ValueError(f"Bad family {fam} - check your JSON")
+        
+        pos = np.array([s["x"], s["y"], s["z"]], dtype=float)
+        sites.append(PharmacophoreSite(family=fam, position=pos, weight=float(s["weight"])))
+    return sites
+
+def parse_exclusion_centers(target):
+    """Exclusion volumes -> numpy array."""
+    vols = target.get("excluded_volumes", [])
+    if not vols:
+        return np.empty((0, 3), dtype=float)
+    return np.array([[v["x"], v["y"], v["z"]] for v in vols], dtype=float)
+
