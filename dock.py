@@ -88,3 +88,15 @@ def load_targets(json_path: str):
         if missing:
             raise ValueError(f"Target #{i} missing keys: {missing}")
     return target
+
+def parse_sites(target):
+    """Turn JSON sites into our objects. Skipped type hints here to save time."""
+    sites = []
+    for s in target.get("interaction_sites", []):
+        fam = s["family"]
+        if fam not in list(FAMILY_MAP.values()):
+            raise ValueError(f"Bad family {fam} - check your JSON")
+        
+        pos = np.array([s["x"], s["y"], s["z"]], dtype=float)
+        sites.append(PharmacophoreSite(family=fam, position=pos, weight=float(s["weight"])))
+    return sites
