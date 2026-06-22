@@ -100,3 +100,11 @@ def parse_sites(target):
         pos = np.array([s["x"], s["y"], s["z"]], dtype=float)
         sites.append(PharmacophoreSite(family=fam, position=pos, weight=float(s["weight"])))
     return sites
+
+def parse_exclusion_centers(target):
+    """Exclusion volumes -> numpy array."""
+    vols = target.get("excluded_volumes", [])
+    if not vols:
+        return np.empty((0, 3), dtype=float)
+    return np.array([[v["x"], v["y"], v["z"]] for v in vols], dtype=float)
+
