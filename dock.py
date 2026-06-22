@@ -357,3 +357,42 @@ def write_result(writer, result, smiles, target_idx):
     out_mol.SetProp("source_conformer_energy", f"{result.conformer_energy:.6f}")
     out_mol.SetProp("source_conformer_id", str(result.conformer_id))
     writer.write(out_mol)
+    
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+def main():
+    targets = load_targets(INPUT_JSON)
+    os.makedirs(os.path.dirname(OUTPUT_SDF), exist_ok=True)
+    
+    writer = Chem.SDWriter(OUTPUT_SDF)
+    success = 0
+    failed = []
+    
+    try:
+        for idx, target in enumerate(targets):
+            smiles = target["smiles"]
+            try:
+                res = solve_target(target)
+                write_result(writer, res, smiles, idx)
+                success += 1
+                print(f"[SUCCESS] {idx}: {smiles} | score={res.score:.4f} | energy={res.conformer_energy:.4f}")
+            except Exception as e:
+                failed.append({"index": idx, "smiles": smiles, "error": str(e)})
+                print(f"[FAILED] {idx}: {smiles} | {e}")
+    finally:
+        writer.close()
+    
+    print("\n=== Docking finished ===")
+    print(f"Successful: {success}")
+    print(f"Failed: {len(failed)}")
+    print(f"Output: {OUTPUT_SDF}")
+    
+    if failed:
+        print("\nFailures:")
+        for f in failed:
+            print(f"  {f['index']} ({f['smiles']}): {f['error']}")
+            
+
+if __name__ == "__main__":
+    main()
