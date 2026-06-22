@@ -225,3 +225,29 @@ def has_clash(atom_coords, exclusion_centers, radius=EXCLUSION_RADIUS, tolerance
         return False
     dists = np.linalg.norm(atom_coords[:, None, :] - exclusion_centers[None, :, :], axis=2)
     return bool((dists < (radius - tolerance)).any())
+
+# ---------------------------------------------------------------------------
+# Scoring
+# ---------------------------------------------------------------------------
+def score_pose_one_to_one(sites, transformed_features, width=PHARMACOPHORE_WIDTH):
+    """Score using Hungarian assignment per family."""
+    total = 0.0
+    families = {"Donor", "Acceptor", "Hydrophobe", "Aromatic"}
+    
+    for fam in families:
+        fam_sites = [s for s in sites if s.family == fam]
+        feat_pos = transformed_features.get(fam, np.empty((0, 3), dtype=float))
+        
+        if not fam_sites or len(feat_pos) == 0:
+            continue
+        
+        site_pos = np.array([s.position for s in fam_sites])
+        dist_matrix = np.linalg.norm(site_pos[:, None, :] - feat_pos[None, :, :], axis=2)
+        
+        row_ind, col_ind = linear_sum_assignment(dist_matrix)
+        for r, c in zip(row_ind, col_ind):
+            d = dist_matrix[r, c]
+            w = fam_sites[r].weight
+            total += w * np.exp(-((d / width) ** 2))
+    
+    return float(total)
