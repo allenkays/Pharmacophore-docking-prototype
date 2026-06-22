@@ -108,3 +108,13 @@ def parse_exclusion_centers(target):
         return np.empty((0, 3), dtype=float)
     return np.array([[v["x"], v["y"], v["z"]] for v in vols], dtype=float)
 
+# ---------------------------------------------------------------------------
+# Molecule builder from SMILES - wrapped in a function for clarity
+# ---------------------------------------------------------------------------
+def build_molecule(smiles):
+    """SMILES -> RDKit mol with Hs. Pretty standard."""
+    mol = Chem.MolFromSmiles(smiles)
+    if mol is None:
+        raise ValueError(f"Couldn't parse SMILES: {smiles}")
+    mol = Chem.AddHs(mol)  # need hydrogens for features usually
+    return mol
