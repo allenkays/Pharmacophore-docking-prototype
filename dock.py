@@ -164,3 +164,28 @@ def flatten_features(features_by_family):
         for p in positions:
             flat.append({"family": fam, "position": p})
     return flat
+
+# ---------------------------------------------------------------------------
+# Alignment helpers
+# ---------------------------------------------------------------------------
+def is_degenerate(points, tolerance=1e-3):
+    """Check if points are too few or collinear for a good transform."""
+    if len(points) < 3:
+        return True
+    centered = points - points.mean(axis=0)
+    singular_values = np.linalg.svd(centered, compute_uv=False)
+    if singular_values[0] < 1e-8:
+        return True
+    return (singular_values[1] / singular_values[0]) < tolerance
+
+def fit_rigid_transform(moving_points, target_points):
+    """Find rotation + translation."""
+    m_center = moving_points.mean(axis=0)
+    t_center = target_points.mean(axis=0)
+    rot = Rotation.align_vectors(target_points - t_center, moving_points - m_center)[0].as_matrix()
+    trans = t_center - rot @ m_center
+    return rot, trans
+
+def apply_transform(coords, rot, trans):
+    """Apply rigid transform to coordinates."""
+    return coords @ rot.T + trans
